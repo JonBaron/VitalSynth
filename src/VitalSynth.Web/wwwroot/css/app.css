@@ -88,34 +88,35 @@ html, body {
     position: absolute;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    padding: 4px 10px 4px 6px;
+    padding: 2px 4px;
+    overflow: hidden;
     font-family: "Courier New", monospace;
     font-weight: bold;
     line-height: 1;
     text-shadow: 0 0 8px currentColor;
 }
 
-.readout .value { font-size: clamp(18px, 4.2vw, 56px); }
-.readout .unit  { font-size: 10px; opacity: 0.7; margin-top: 2px; }
+.readout .value { font-size: clamp(14px, 2.6vw, 30px); letter-spacing: -1px; }
+.readout .unit  { font-size: clamp(6px, 0.7vw, 9px); opacity: 0.7; margin-top: 2px; }
 
-.readout.hr   { left: 82.0%; top: 17.5%; width: 9.2%; height: 11.5%; color: var(--readout-hr); }
-.readout.spo2 { left: 82.0%; top: 33.5%; width: 9.2%; height: 11.5%; color: var(--readout-spo2); }
-.readout.temp { left: 82.0%; top: 49.5%; width: 9.2%; height: 11.5%; color: var(--readout-temp); }
+.readout.hr   { left: 83.3%; top: 21.7%; width: 6.6%; height: 9.6%; color: var(--readout-hr); }
+.readout.spo2 { left: 83.3%; top: 37.3%; width: 6.6%; height: 9.6%; color: var(--readout-spo2); }
+.readout.temp { left: 83.3%; top: 53.0%; width: 6.6%; height: 9.6%; color: var(--readout-temp); }
 
 /* --- Scenario buttons — overlay on top of the physical buttons ------ */
 
 .buttons {
     position: absolute;
-    left: 80.5%;
-    top: 64.5%;
-    width: 14.5%;
-    height: 20%;
+    left: 80.1%;
+    top: 67.0%;
+    width: 11.8%;
+    height: 13.2%;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
-    gap: 4px;
+    gap: 2px;
 }
 
 .buttons button {
