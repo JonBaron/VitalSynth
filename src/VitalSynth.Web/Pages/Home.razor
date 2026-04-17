@@ -68,7 +68,7 @@
 
     private CancellationTokenSource? _cts;
     private bool _paused;
-    private bool _soundOn;
+    private bool _soundOn = true;
     private Scenario _lastAlarmedScenario = Scenario.Normal;
     private int    _hr;
     private double _spo2;

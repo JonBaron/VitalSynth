@@ -9,7 +9,7 @@ window.vitalScope = (() => {
 
     // --- Audio: patient-monitor beep + asystole alarm ---------------------
     let audioCtx = null;
-    let audioOn = false;
+    let audioOn = true;          // on by default; context primes on 1st gesture
     let alarmTimer = null;
 
     function ensureAudio() {
@@ -21,6 +21,18 @@ window.vitalScope = (() => {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         return true;
     }
+
+    // Browsers block AudioContext until a user gesture. Auto-prime on the
+    // first click/keydown/touch so the default-on state actually plays.
+    const primeAudio = () => {
+        ensureAudio();
+        window.removeEventListener('pointerdown', primeAudio, true);
+        window.removeEventListener('keydown',     primeAudio, true);
+        window.removeEventListener('touchstart',  primeAudio, true);
+    };
+    window.addEventListener('pointerdown', primeAudio, true);
+    window.addEventListener('keydown',     primeAudio, true);
+    window.addEventListener('touchstart',  primeAudio, true);
 
     function playTone(freq, durationMs, type, peakGain) {
         if (!audioOn || !audioCtx) return;
