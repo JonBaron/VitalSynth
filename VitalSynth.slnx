@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VitalSynth.Console/VitalSynth.Console.csproj" />
+    <Project Path="src/VitalSynth.Core/VitalSynth.Core.csproj" />
+  </Folder>
+</Solution>

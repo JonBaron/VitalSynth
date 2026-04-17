@@ -89,14 +89,33 @@ VitalSynth bygger EKG-kompleks (P-QRS-T) som en **Fourier-rekke** med kontroller
 
 ---
 
-## Prototype
+## Arkitektur
 
-Se [`src/VitalSynth.cs`](src/VitalSynth.cs) — en selvstendig C#-fil som genererer EKG, puls og SpO₂ i sanntid og sender ut HL7-lignende meldinger.
+En kjerne, flere klienter.
+
+```
+VitalSynth.sln
+├── src/VitalSynth.Core/          ← UI-agnostisk bibliotek
+│   ├── Session.cs                    passiv engine, klient driver Step()
+│   ├── HeartOscillator.cs            P-QRS-T + Fourier-syntese
+│   ├── SlowSignals.cs                respirasjon / SpO₂ / temperatur
+│   ├── Hl7MllpSink.cs                HL7 v2 ORU^R01 + MLLP/TCP
+│   ├── IVitalsSink.cs                plugg inn HTTP/WebSocket for web
+│   ├── Cfg.cs · Scenario.cs · Vitals.cs
+│
+└── src/VitalSynth.Console/       ← CLI-klient (konsoll + tastatur)
+    ├── Program.cs                    driver Session.Step() i sanntid
+    └── Scope.cs                      ASCII-oscilloskop
+```
+
+`Session` er **passiv** — klienten kaller `Step(buffer)` med ønsket batch-størrelse. Det gjør samme kjerne brukbar fra en Blazor WASM- eller HTML5-klient senere, der en `requestAnimationFrame`-loop (eller `System.Timers.Timer`) driver motoren i stedet for en konsoll-`while`.
+
+## Prototype
 
 ![VitalSynth scope](assets/vitalsynth-scope.png)
 
 ```bash
-dotnet run --project src
+dotnet run --project src/VitalSynth.Console
 ```
 
 ---
