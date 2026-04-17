@@ -10,10 +10,16 @@ public sealed class HeartOscillator(Cfg cfg)
     private const double QStart = 0.22, QEnd = 0.30;
     private const double TStart = 0.38, TEnd = 0.55;
 
+    private const double RPeakPhase = 0.26;
+
     private readonly Random _rng = new(0xEC6);
     private double _beatPhase;
     private double _rrSec = 60.0 / cfg.Bpm;
     private double _lastBpm = cfg.Bpm;
+    private bool _rPeakArmed = true;
+
+    /// <summary>True for exactly one sample when the R-peak of a beat passes.</summary>
+    public bool BeatThisSample { get; private set; }
 
     public int CurrentBpm => cfg.Scenario switch
     {
@@ -24,16 +30,24 @@ public sealed class HeartOscillator(Cfg cfg)
 
     public double NextSample(double dt, double respModulation)
     {
+        BeatThisSample = false;
         _lastBpm = EffectiveBpm() * (1 + respModulation * cfg.RespDepth);
         _beatPhase += dt / _rrSec;
 
         if (_beatPhase >= 1)
         {
             _beatPhase -= 1;
+            _rPeakArmed = true;
             var jitter = (_rng.NextDouble() - 0.5) * cfg.HrVar / 50;
             _rrSec = 60.0 / Math.Max(_lastBpm, 1) * (1 + jitter);
             if (cfg.Scenario is Scenario.AFib)
                 _rrSec *= 1 + (_rng.NextDouble() - 0.5) * 0.35;
+        }
+
+        if (_rPeakArmed && _beatPhase >= RPeakPhase && cfg.Scenario is not Scenario.Asystole)
+        {
+            _rPeakArmed = false;
+            BeatThisSample = true;
         }
 
         if (cfg.Scenario is Scenario.Asystole)

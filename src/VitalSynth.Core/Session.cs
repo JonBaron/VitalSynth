@@ -24,6 +24,17 @@ public sealed class Session : IDisposable
     public double CurrentSpo2  => _slow.LastSpo2;
     public double CurrentTempC => _slow.LastTempC;
 
+    /// <summary>Number of R-peaks detected since the last <see cref="ConsumePendingBeats"/> call.</summary>
+    public int PendingBeats { get; private set; }
+
+    /// <summary>Atomically read and reset the pending beat counter (for UI beep triggering).</summary>
+    public int ConsumePendingBeats()
+    {
+        var n = PendingBeats;
+        PendingBeats = 0;
+        return n;
+    }
+
     /// <summary>Raised on every HL7 tick, after the sink has been published to.</summary>
     public event Action<Vitals>? VitalsPublished;
 
@@ -51,6 +62,7 @@ public sealed class Session : IDisposable
         {
             var resp = _slow.Respiration(dt);
             buffer[i] = _heart.NextSample(dt, resp);
+            if (_heart.BeatThisSample) PendingBeats++;
             _slow.AdvanceSpo2(dt);
             _slow.AdvanceTemperature(dt);
 

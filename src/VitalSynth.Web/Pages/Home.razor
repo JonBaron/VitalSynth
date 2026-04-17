@@ -39,10 +39,13 @@
         <span>·</span>
         <button class="link" style="all: unset; cursor: pointer; color: inherit; text-decoration: underline;"
                 @onclick="TogglePause">@(_paused ? "resume" : "pause")</button>
+        <span>·</span>
+        <button class="link" style="all: unset; cursor: pointer; color: inherit; text-decoration: underline;"
+                @onclick="ToggleSound">@(_soundOn ? "sound off" : "sound on")</button>
     </div>
 
     <div class="hints">
-        Click machine, then press <b>1-6</b> for scenarios  ·  <b>space</b> pause  ·  <b>±</b> BPM
+        Click machine, then press <b>1-6</b> for scenarios  ·  <b>space</b> pause  ·  <b>s</b> sound  ·  <b>±</b> BPM
     </div>
 </div>
 
@@ -65,6 +68,8 @@
 
     private CancellationTokenSource? _cts;
     private bool _paused;
+    private bool _soundOn;
+    private Scenario _lastAlarmedScenario = Scenario.Normal;
     private int    _hr;
     private double _spo2;
     private double _temp;
@@ -101,7 +106,21 @@
                 {
                     _session.Step(buffer);
 
-                    try { await JS.InvokeVoidAsync("vitalScope.pushAndPaint", ct, buffer); }
+                    try
+                    {
+                        await JS.InvokeVoidAsync("vitalScope.pushAndPaint", ct, buffer);
+
+                        if (_soundOn)
+                        {
+                            var beats = _session.ConsumePendingBeats();
+                            for (var i = 0; i < beats; i++)
+                                await JS.InvokeVoidAsync("vitalScope.beep", ct, _session.CurrentSpo2);
+                        }
+                        else
+                        {
+                            _session.ConsumePendingBeats();
+                        }
+                    }
                     catch (JSDisconnectedException) { break; }
 
                     _hr   = _session.CurrentBpm;
@@ -115,9 +134,10 @@
         catch (OperationCanceledException) { }
     }
 
-    private void SetScenario(Scenario s)
+    private async Task SetScenario(Scenario s)
     {
         _cfg.Scenario = s;
+        await SyncAlarmAsync();
         StateHasChanged();
     }
 
@@ -127,17 +147,48 @@
         StateHasChanged();
     }
 
-    private void OnKey(KeyboardEventArgs e)
+    private async Task ToggleSound()
+    {
+        if (!_soundOn)
+        {
+            try { _soundOn = await JS.InvokeAsync<bool>("vitalScope.enableAudio"); }
+            catch { _soundOn = false; }
+            await SyncAlarmAsync();
+        }
+        else
+        {
+            _soundOn = false;
+            try { await JS.InvokeVoidAsync("vitalScope.disableAudio"); } catch { }
+        }
+        StateHasChanged();
+    }
+
+    private async Task SyncAlarmAsync()
+    {
+        if (_soundOn && _cfg.Scenario is Scenario.Asystole && _lastAlarmedScenario is not Scenario.Asystole)
+        {
+            try { await JS.InvokeVoidAsync("vitalScope.startAlarm"); } catch { }
+        }
+        else if (_cfg.Scenario is not Scenario.Asystole && _lastAlarmedScenario is Scenario.Asystole)
+        {
+            try { await JS.InvokeVoidAsync("vitalScope.stopAlarm"); } catch { }
+        }
+        _lastAlarmedScenario = _cfg.Scenario;
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
     {
         switch (e.Key)
         {
-            case "1": SetScenario(Scenario.Normal);       break;
-            case "2": SetScenario(Scenario.Tachycardia);  break;
-            case "3": SetScenario(Scenario.Bradycardia);  break;
-            case "4": SetScenario(Scenario.AFib);         break;
-            case "5": SetScenario(Scenario.Desaturation); break;
-            case "6": SetScenario(Scenario.Asystole);     break;
-            case " ": TogglePause();                      break;
+            case "1": await SetScenario(Scenario.Normal);       break;
+            case "2": await SetScenario(Scenario.Tachycardia);  break;
+            case "3": await SetScenario(Scenario.Bradycardia);  break;
+            case "4": await SetScenario(Scenario.AFib);         break;
+            case "5": await SetScenario(Scenario.Desaturation); break;
+            case "6": await SetScenario(Scenario.Asystole);     break;
+            case " ": TogglePause();                            break;
+            case "s":
+            case "S": await ToggleSound();                      break;
             case "+": _cfg.Bpm = Math.Min(220, _cfg.Bpm + 5); StateHasChanged(); break;
             case "-": _cfg.Bpm = Math.Max( 25, _cfg.Bpm - 5); StateHasChanged(); break;
         }
@@ -147,6 +198,6 @@
     {
         _cts?.Cancel();
         _session?.Dispose();
-        await Task.CompletedTask;
+        try { await JS.InvokeVoidAsync("vitalScope.stopAlarm"); } catch { }
     }
 }
