@@ -2,5 +2,6 @@
   <Folder Name="/src/">
     <Project Path="src/VitalSynth.Console/VitalSynth.Console.csproj" />
     <Project Path="src/VitalSynth.Core/VitalSynth.Core.csproj" />
+    <Project Path="src/VitalSynth.Web/VitalSynth.Web.csproj" />
   </Folder>
 </Solution>

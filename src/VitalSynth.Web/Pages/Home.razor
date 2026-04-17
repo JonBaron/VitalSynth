@@ -1,0 +1,152 @@
+﻿@page "/"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<PageTitle>VitalSynth — live demo</PageTitle>
+
+<div class="machine" @onkeydown="OnKey" tabindex="0" @ref="_root">
+
+    <div class="screen">
+        <div class="screen-label">ECG  II  ·  25 mm/s  ·  10 mm/mV</div>
+        <canvas @ref="_canvas"></canvas>
+    </div>
+
+    <div class="readout hr">
+        <span class="value">@(_cfg.Scenario == Scenario.Asystole ? "--" : _hr.ToString())</span>
+        <span class="unit">bpm</span>
+    </div>
+    <div class="readout spo2">
+        <span class="value">@_spo2.ToString("0")</span>
+        <span class="unit">%SpO₂</span>
+    </div>
+    <div class="readout temp">
+        <span class="value">@_temp.ToString("0.0")</span>
+        <span class="unit">°C</span>
+    </div>
+
+    <div class="buttons">
+        @foreach (var (key, scenario, label) in _scenarios)
+        {
+            <button class="@(_cfg.Scenario == scenario ? "active" : "")"
+                    title="@label"
+                    @onclick="() => SetScenario(scenario)">@key</button>
+        }
+    </div>
+
+    <div class="status @(_paused ? "paused" : "")">
+        <span class="tag">@(_paused ? "PAUSED" : _cfg.Scenario.ToString())</span>
+        <span>@_cfg.Bpm bpm base</span>
+        <span>·</span>
+        <button class="link" style="all: unset; cursor: pointer; color: inherit; text-decoration: underline;"
+                @onclick="TogglePause">@(_paused ? "resume" : "pause")</button>
+    </div>
+
+    <div class="hints">
+        Click machine, then press <b>1-6</b> for scenarios  ·  <b>space</b> pause  ·  <b>±</b> BPM
+    </div>
+</div>
+
+@code {
+    private static readonly (string Key, Scenario Scenario, string Label)[] _scenarios =
+    [
+        ("1", Scenario.Normal,       "Normal sinus rhythm"),
+        ("2", Scenario.Tachycardia,  "Tachycardia"),
+        ("3", Scenario.Bradycardia,  "Bradycardia"),
+        ("4", Scenario.AFib,         "Atrial fibrillation"),
+        ("5", Scenario.Desaturation, "Desaturation"),
+        ("6", Scenario.Asystole,     "Asystole"),
+    ];
+
+    private readonly Cfg _cfg = new();
+    private Session? _session;
+
+    private ElementReference _root;
+    private ElementReference _canvas;
+
+    private CancellationTokenSource? _cts;
+    private bool _paused;
+    private int    _hr;
+    private double _spo2;
+    private double _temp;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _session = new Session(_cfg);
+        _hr   = _session.CurrentBpm;
+        _spo2 = _session.CurrentSpo2;
+        _temp = _session.CurrentTempC;
+
+        await JS.InvokeVoidAsync("vitalScope.init", _canvas);
+        try { await _root.FocusAsync(); } catch { /* ignore */ }
+
+        _cts = new CancellationTokenSource();
+        _ = RunLoopAsync(_cts.Token);
+    }
+
+    private async Task RunLoopAsync(CancellationToken ct)
+    {
+        const int fps = 30;
+        var samplesPerFrame = _cfg.SampleRateHz / fps;
+        var buffer = new double[samplesPerFrame];
+
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000.0 / fps));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                if (!_paused && _session is not null)
+                {
+                    _session.Step(buffer);
+
+                    try { await JS.InvokeVoidAsync("vitalScope.pushAndPaint", ct, buffer); }
+                    catch (JSDisconnectedException) { break; }
+
+                    _hr   = _session.CurrentBpm;
+                    _spo2 = _session.CurrentSpo2;
+                    _temp = _session.CurrentTempC;
+
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void SetScenario(Scenario s)
+    {
+        _cfg.Scenario = s;
+        StateHasChanged();
+    }
+
+    private void TogglePause()
+    {
+        _paused = !_paused;
+        StateHasChanged();
+    }
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "1": SetScenario(Scenario.Normal);       break;
+            case "2": SetScenario(Scenario.Tachycardia);  break;
+            case "3": SetScenario(Scenario.Bradycardia);  break;
+            case "4": SetScenario(Scenario.AFib);         break;
+            case "5": SetScenario(Scenario.Desaturation); break;
+            case "6": SetScenario(Scenario.Asystole);     break;
+            case " ": TogglePause();                      break;
+            case "+": _cfg.Bpm = Math.Min(220, _cfg.Bpm + 5); StateHasChanged(); break;
+            case "-": _cfg.Bpm = Math.Max( 25, _cfg.Bpm - 5); StateHasChanged(); break;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _cts?.Cancel();
+        _session?.Dispose();
+        await Task.CompletedTask;
+    }
+}

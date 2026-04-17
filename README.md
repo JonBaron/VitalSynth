@@ -103,20 +103,43 @@ VitalSynth.sln
 │   ├── IVitalsSink.cs                plugg inn HTTP/WebSocket for web
 │   ├── Cfg.cs · Scenario.cs · Vitals.cs
 │
-└── src/VitalSynth.Console/       ← CLI-klient (konsoll + tastatur)
-    ├── Program.cs                    driver Session.Step() i sanntid
-    └── Scope.cs                      ASCII-oscilloskop
+├── src/VitalSynth.Console/       ← CLI-klient (konsoll + tastatur)
+│   ├── Program.cs                    driver Session.Step() i sanntid
+│   └── Scope.cs                      ASCII-oscilloskop
+│
+└── src/VitalSynth.Web/           ← Blazor WebAssembly (samme Core)
+    ├── Pages/Home.razor              PeriodicTimer driver Session
+    ├── wwwroot/js/scope.js           canvas-renderer
+    └── wwwroot/assets/               EKG-maskin-bakgrunn
 ```
 
-`Session` er **passiv** — klienten kaller `Step(buffer)` med ønsket batch-størrelse. Det gjør samme kjerne brukbar fra en Blazor WASM- eller HTML5-klient senere, der en `requestAnimationFrame`-loop (eller `System.Timers.Timer`) driver motoren i stedet for en konsoll-`while`.
+`Session` er **passiv** — klienten kaller `Step(buffer)` med ønsket batch-størrelse. Det gjør at samme kjerne driver både konsoll-klienten og Blazor WASM-klienten uten endringer.
 
-## Prototype
+---
 
-![VitalSynth scope](assets/vitalsynth-scope.png)
+## Live demo
+
+**▶ [Prøv i nettleseren](https://jonbaron.github.io/VitalSynth/)**
+
+Blazor WebAssembly-klient som deler kjerne-bibliotek med CLI-en. Tegner syntetisk EKG på et virtuelt pasientmonitor-display direkte i nettleseren.
+
+![VitalSynth web client](assets/vitalsynth-web.png)
+
+---
+
+## Kjøre lokalt
 
 ```bash
+# Konsoll-klient (live ASCII-oscilloskop)
 dotnet run --project src/VitalSynth.Console
+
+# Web-klient (Blazor WASM på http://localhost:5000)
+dotnet run --project src/VitalSynth.Web
 ```
+
+Konsoll-klienten viser:
+
+![VitalSynth scope](assets/vitalsynth-scope.png)
 
 ---
 

@@ -1,0 +1,191 @@
+:root {
+    --ecg-green: #00ff41;
+    --ecg-green-dim: #0a1a10;
+    --readout-hr: #ff5565;
+    --readout-spo2: #4ad1ff;
+    --readout-temp: #ffd34a;
+    --ecg-grid: rgba(0, 255, 65, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #e9ecef;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1f2328;
+    overflow: hidden;
+}
+
+#app { width: 100%; height: 100%; }
+
+/* Boot screen (before Blazor loads) */
+.boot {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+    color: #57606a;
+}
+.boot-title { font-size: 32px; font-weight: 600; letter-spacing: 4px; }
+.boot-sub   { font-size: 14px; opacity: 0.7; }
+
+/* --- Machine layout ------------------------------------------------- */
+
+.machine {
+    position: relative;
+    width: min(96vw, 96vh * 16 / 9);
+    aspect-ratio: 16 / 9;
+    margin: 2vh auto;
+    background: url('../assets/ecg-machine.png') center/contain no-repeat;
+}
+
+/* Main ECG screen overlay — positioned over the big black rectangle */
+.screen {
+    position: absolute;
+    left:   8.8%;
+    top:   14.8%;
+    width: 66.5%;
+    height: 70.4%;
+    background: #000;
+    overflow: hidden;
+}
+
+.screen canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+}
+
+.screen::before {
+    /* subtle CRT scanlines */
+    content: "";
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.02) 0 1px,
+        transparent 1px 3px
+    );
+    pointer-events: none;
+}
+
+.screen-label {
+    position: absolute;
+    left: 12px; top: 8px;
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    color: rgba(0, 255, 65, 0.55);
+    letter-spacing: 2px;
+    pointer-events: none;
+}
+
+/* --- Readout bezels (HR, SpO2, TEMP) -------------------------------- */
+
+.readout {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 4px 10px 4px 6px;
+    font-family: "Courier New", monospace;
+    font-weight: bold;
+    line-height: 1;
+    text-shadow: 0 0 8px currentColor;
+}
+
+.readout .value { font-size: clamp(18px, 4.2vw, 56px); }
+.readout .unit  { font-size: 10px; opacity: 0.7; margin-top: 2px; }
+
+.readout.hr   { left: 82.0%; top: 17.5%; width: 9.2%; height: 11.5%; color: var(--readout-hr); }
+.readout.spo2 { left: 82.0%; top: 33.5%; width: 9.2%; height: 11.5%; color: var(--readout-spo2); }
+.readout.temp { left: 82.0%; top: 49.5%; width: 9.2%; height: 11.5%; color: var(--readout-temp); }
+
+/* --- Scenario buttons — overlay on top of the physical buttons ------ */
+
+.buttons {
+    position: absolute;
+    left: 80.5%;
+    top: 64.5%;
+    width: 14.5%;
+    height: 20%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 4px;
+}
+
+.buttons button {
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: transparent;
+    font-size: 10px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.buttons button:hover  { background: rgba(0, 180, 255, 0.12); color: rgba(0,0,0,0.6); }
+.buttons button.active {
+    background: rgba(0, 180, 255, 0.35);
+    color: #003;
+    box-shadow: 0 0 0 2px rgba(0, 180, 255, 0.6) inset;
+}
+
+/* --- Bottom status bar ---------------------------------------------- */
+
+.status {
+    position: absolute;
+    left: 50%;
+    bottom: 1.5vh;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: #57606a;
+    background: rgba(255,255,255,0.7);
+    padding: 6px 14px;
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+}
+
+.status .tag {
+    font-weight: 600;
+    color: #1f2328;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.status.paused .tag { color: #d1242f; }
+
+/* Keyboard hints floating below machine */
+.hints {
+    position: absolute;
+    left: 50%;
+    bottom: -4vh;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #8b949e;
+    letter-spacing: 0.5px;
+}
+
+#blazor-error-ui {
+    background: #ffe9e9;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
