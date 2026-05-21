@@ -3,6 +3,12 @@ namespace VitalSynth.Core;
 /// <summary>
 /// Synthesizes an ECG P-QRS-T complex from a small Fourier series.
 /// QRS is reconstructed as a 6-harmonic stack windowed by a super-Gaussian.
+/// <para>
+/// Boundary I/O uses SI-grounded unit types; the inner loop stays on raw
+/// <see cref="double"/> so the trigonometry isn't drowned in <c>.Value</c>.
+/// The output of <see cref="NextSample"/> is in <em>millivolts</em> — the
+/// conventional unit for ECG traces (rendered as such by the scope/canvas).
+/// </para>
 /// </summary>
 public sealed class HeartOscillator(Cfg cfg)
 {
@@ -14,20 +20,21 @@ public sealed class HeartOscillator(Cfg cfg)
 
     private readonly Random _rng = new(0xEC6);
     private double _beatPhase;
-    private double _rrSec = 60.0 / cfg.Bpm;
-    private double _lastBpm = cfg.Bpm;
+    private double _rrSec = 60.0 / cfg.HeartRate.Value;
+    private double _lastBpm = cfg.HeartRate.Value;
     private bool _rPeakArmed = true;
 
     /// <summary>True for exactly one sample when the R-peak of a beat passes.</summary>
     public bool BeatThisSample { get; private set; }
 
-    public int CurrentBpm => cfg.Scenario switch
+    public BeatsPerMinute CurrentHeartRate => cfg.Scenario switch
     {
-        Scenario.Asystole => 0,
-        Scenario.AFib     => 95 + _rng.Next(-15, 25),
-        _                 => (int)Math.Round(_lastBpm),
+        Scenario.Asystole => new BeatsPerMinute(0),
+        Scenario.AFib     => BeatsPerMinute.Clamp(95 + _rng.Next(-15, 25)),
+        _                 => BeatsPerMinute.Clamp((int)Math.Round(_lastBpm)),
     };
 
+    /// <returns>ECG sample in millivolts.</returns>
     public double NextSample(double dt, double respModulation)
     {
         BeatThisSample = false;
@@ -38,7 +45,7 @@ public sealed class HeartOscillator(Cfg cfg)
         {
             _beatPhase -= 1;
             _rPeakArmed = true;
-            var jitter = (_rng.NextDouble() - 0.5) * cfg.HrVar / 50;
+            var jitter = (_rng.NextDouble() - 0.5) * cfg.HrJitter.Value / 50;
             _rrSec = 60.0 / Math.Max(_lastBpm, 1) * (1 + jitter);
             if (cfg.Scenario is Scenario.AFib)
                 _rrSec *= 1 + (_rng.NextDouble() - 0.5) * 0.35;
@@ -50,19 +57,21 @@ public sealed class HeartOscillator(Cfg cfg)
             BeatThisSample = true;
         }
 
-        if (cfg.Scenario is Scenario.Asystole)
-            return GaussianNoise() * cfg.Noise;
+        var noiseMv = cfg.NoiseAmplitude.InMillivolts;
 
-        return cfg.QrsMv * (PWave(_beatPhase) + QrsWave(_beatPhase) + TWave(_beatPhase))
-             + GaussianNoise() * cfg.Noise;
+        if (cfg.Scenario is Scenario.Asystole)
+            return GaussianNoise() * noiseMv;
+
+        return cfg.QrsAmplitude.InMillivolts * (PWave(_beatPhase) + QrsWave(_beatPhase) + TWave(_beatPhase))
+             + GaussianNoise() * noiseMv;
     }
 
     private double EffectiveBpm() => cfg.Scenario switch
     {
-        Scenario.Tachycardia => Math.Max(cfg.Bpm, 140),
-        Scenario.Bradycardia => Math.Min(cfg.Bpm, 42),
+        Scenario.Tachycardia => Math.Max(cfg.HeartRate.Value, 140),
+        Scenario.Bradycardia => Math.Min(cfg.HeartRate.Value, 42),
         Scenario.AFib        => 95 + 20 * Math.Sin(Environment.TickCount / 4000.0),
-        _                    => cfg.Bpm,
+        _                    => cfg.HeartRate.Value,
     };
 
     private double GaussianNoise()

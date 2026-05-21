@@ -24,7 +24,7 @@ public sealed class Scope(int width)
         foreach (var s in samples) Push(s);
     }
 
-    public void Render(Scenario scenario, int hr, double spo2, double tempC, bool paused)
+    public void Render(Scenario scenario, BeatsPerMinute hr, Percent spo2, Celsius tempC, bool paused)
     {
         var line = new char[_buffer.Length];
         var status = paused ? "PAUSED" : scenario.ToString();

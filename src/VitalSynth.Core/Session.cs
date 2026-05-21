@@ -20,9 +20,9 @@ public sealed class Session : IDisposable
 
     public Cfg Cfg { get; }
 
-    public int    CurrentBpm   => _heart.CurrentBpm;
-    public double CurrentSpo2  => _slow.LastSpo2;
-    public double CurrentTempC => _slow.LastTempC;
+    public BeatsPerMinute CurrentHeartRate => _heart.CurrentHeartRate;
+    public Percent        CurrentSpo2      => _slow.LastSpo2;
+    public Celsius        CurrentTempC     => _slow.LastTempC;
 
     /// <summary>Number of R-peaks detected since the last <see cref="ConsumePendingBeats"/> call.</summary>
     public int PendingBeats { get; private set; }
@@ -44,20 +44,20 @@ public sealed class Session : IDisposable
         _heart = new HeartOscillator(cfg);
         _slow  = new SlowSignals(cfg);
         _sink  = sink;
-        _samplesPerHl7 = Math.Max(1, cfg.SampleRateHz * cfg.Hl7IntervalMs / 1000);
+        _samplesPerHl7 = Math.Max(1, (int)Math.Round(cfg.SampleRate.Value * cfg.Hl7Interval.TotalSeconds));
 
         _slow.AdvanceSpo2(0);
         _slow.AdvanceTemperature(0);
     }
 
     /// <summary>
-    /// Advance the engine by <paramref name="samples"/> samples at the
-    /// configured sample rate, filling <paramref name="buffer"/> with
-    /// ECG voltages in mV. Triggers HL7 ticks when due.
+    /// Advance the engine by <paramref name="buffer"/>.Length samples at the
+    /// configured sample rate, filling the buffer with ECG voltages in mV.
+    /// Triggers HL7 ticks when due.
     /// </summary>
     public void Step(Span<double> buffer)
     {
-        var dt = 1.0 / Cfg.SampleRateHz;
+        var dt = 1.0 / Cfg.SampleRate.Value;
         for (var i = 0; i < buffer.Length; i++)
         {
             var resp = _slow.Respiration(dt);
@@ -70,7 +70,7 @@ public sealed class Session : IDisposable
             {
                 _hl7Counter = 0;
                 var v = new Vitals(
-                    HeartRate:    _heart.CurrentBpm,
+                    HeartRate:    _heart.CurrentHeartRate,
                     Spo2:         _slow.LastSpo2,
                     TemperatureC: _slow.LastTempC,
                     Scenario:     Cfg.Scenario,

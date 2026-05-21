@@ -16,7 +16,7 @@ public static class Program
         using var session = new Session(cfg, sink);
 
         var scope = new Scope(Math.Min(Console.WindowWidth - 1, 100));
-        var samplesPerFrame = cfg.SampleRateHz / 30;
+        var samplesPerFrame = (int)(cfg.SampleRate.Value / 30);
         var buffer = new double[samplesPerFrame];
 
         Console.CursorVisible = false;
@@ -34,7 +34,7 @@ public static class Program
                 scope.Push(buffer);
             }
 
-            scope.Render(cfg.Scenario, session.CurrentBpm, session.CurrentSpo2, session.CurrentTempC, paused);
+            scope.Render(cfg.Scenario, session.CurrentHeartRate, session.CurrentSpo2, session.CurrentTempC, paused);
 
             if (Console.KeyAvailable)
             {
@@ -62,8 +62,8 @@ public static class Program
             case '4': cfg.Scenario = Scenario.AFib;         break;
             case '5': cfg.Scenario = Scenario.Desaturation; break;
             case '6': cfg.Scenario = Scenario.Asystole;     break;
-            case '+': cfg.Bpm = Math.Min(220, cfg.Bpm + 5); break;
-            case '-': cfg.Bpm = Math.Max( 25, cfg.Bpm - 5); break;
+            case '+': cfg.HeartRate = BeatsPerMinute.Clamp(cfg.HeartRate.Value + 5, 25, 220); break;
+            case '-': cfg.HeartRate = BeatsPerMinute.Clamp(cfg.HeartRate.Value - 5, 25, 220); break;
             case ' ': paused = !paused;                     break;
             case 'q' or 'Q': return KeyAction.Quit;
         }

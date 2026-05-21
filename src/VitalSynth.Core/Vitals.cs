@@ -5,9 +5,9 @@ namespace VitalSynth.Core;
 /// Produced by the session on every HL7 tick.
 /// </summary>
 public readonly record struct Vitals(
-    int      HeartRate,
-    double   Spo2,
-    double   TemperatureC,
-    Scenario Scenario,
-    DateTime TimestampUtc
+    BeatsPerMinute HeartRate,
+    Percent        Spo2,
+    Celsius        TemperatureC,
+    Scenario       Scenario,
+    DateTime       TimestampUtc
 );

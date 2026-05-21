@@ -15,6 +15,7 @@
         <span class="value">@(_cfg.Scenario == Scenario.Asystole ? "--" : _hr.ToString())</span>
         <span class="unit">bpm</span>
     </div>
+
     <div class="readout spo2">
         <span class="value">@_spo2.ToString("0")</span>
         <span class="unit">%SpO₂</span>
@@ -35,7 +36,7 @@
 
     <div class="status @(_paused ? "paused" : "")">
         <span class="tag">@(_paused ? "PAUSED" : _cfg.Scenario.ToString())</span>
-        <span>@_cfg.Bpm bpm base</span>
+        <span>@_cfg.HeartRate bpm base</span>
         <span>·</span>
         <button class="link" style="all: unset; cursor: pointer; color: inherit; text-decoration: underline;"
                 @onclick="TogglePause">@(_paused ? "resume" : "pause")</button>
@@ -70,16 +71,16 @@
     private bool _paused;
     private bool _soundOn = true;
     private Scenario _lastAlarmedScenario = Scenario.Normal;
-    private int    _hr;
-    private double _spo2;
-    private double _temp;
+    private BeatsPerMinute _hr;
+    private Percent        _spo2;
+    private Celsius        _temp;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
         _session = new Session(_cfg);
-        _hr   = _session.CurrentBpm;
+        _hr   = _session.CurrentHeartRate;
         _spo2 = _session.CurrentSpo2;
         _temp = _session.CurrentTempC;
 
@@ -93,7 +94,7 @@
     private async Task RunLoopAsync(CancellationToken ct)
     {
         const int fps = 30;
-        var samplesPerFrame = _cfg.SampleRateHz / fps;
+        var samplesPerFrame = (int)(_cfg.SampleRate.Value / fps);
         var buffer = new double[samplesPerFrame];
 
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000.0 / fps));
@@ -114,7 +115,7 @@
                         {
                             var beats = _session.ConsumePendingBeats();
                             for (var i = 0; i < beats; i++)
-                                await JS.InvokeVoidAsync("vitalScope.beep", ct, _session.CurrentSpo2);
+                                await JS.InvokeVoidAsync("vitalScope.beep", ct, _session.CurrentSpo2.Value);
                         }
                         else
                         {
@@ -123,7 +124,7 @@
                     }
                     catch (JSDisconnectedException) { break; }
 
-                    _hr   = _session.CurrentBpm;
+                    _hr   = _session.CurrentHeartRate;
                     _spo2 = _session.CurrentSpo2;
                     _temp = _session.CurrentTempC;
 
@@ -189,8 +190,8 @@
             case " ": TogglePause();                            break;
             case "s":
             case "S": await ToggleSound();                      break;
-            case "+": _cfg.Bpm = Math.Min(220, _cfg.Bpm + 5); StateHasChanged(); break;
-            case "-": _cfg.Bpm = Math.Max( 25, _cfg.Bpm - 5); StateHasChanged(); break;
+            case "+": _cfg.HeartRate = BeatsPerMinute.Clamp(_cfg.HeartRate.Value + 5, 25, 220); StateHasChanged(); break;
+            case "-": _cfg.HeartRate = BeatsPerMinute.Clamp(_cfg.HeartRate.Value - 5, 25, 220); StateHasChanged(); break;
         }
     }
 
